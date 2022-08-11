@@ -55,6 +55,9 @@ public class DynamicServerListLoadBalancer<T extends Server> extends BaseLoadBal
 
     volatile ServerListFilter<T> filter;
 
+    /**
+     * 维护的update匿名函数由updater调用
+     */
     protected final ServerListUpdater.UpdateAction updateAction = new ServerListUpdater.UpdateAction() {
         @Override
         public void doUpdate() {
@@ -114,14 +117,12 @@ public class DynamicServerListLoadBalancer<T extends Server> extends BaseLoadBal
             this.serverListImpl = niwsServerListImpl;
 
             if (niwsServerListImpl instanceof AbstractServerList) {
-                AbstractServerListFilter<T> niwsFilter = ((AbstractServerList) niwsServerListImpl)
-                        .getFilterImpl(clientConfig);
+                AbstractServerListFilter<T> niwsFilter = ((AbstractServerList) niwsServerListImpl).getFilterImpl(clientConfig);
                 niwsFilter.setLoadBalancerStats(getLoadBalancerStats());
                 this.filter = niwsFilter;
             }
 
-            String serverListUpdaterClassName = clientConfig.getOrDefault(
-                    CommonClientConfigKey.ServerListUpdaterClassName);
+            String serverListUpdaterClassName = clientConfig.getOrDefault(CommonClientConfigKey.ServerListUpdaterClassName);
 
             this.serverListUpdater = (ServerListUpdater) factory.create(serverListUpdaterClassName, clientConfig);
 
@@ -252,18 +253,18 @@ public class DynamicServerListLoadBalancer<T extends Server> extends BaseLoadBal
     /**
      * Update the AllServer list in the LoadBalancer if necessary and enabled
      * 
-     * @param ls
+     * @param allServers
      */
-    protected void updateAllServerList(List<T> ls) {
+    protected void updateAllServerList(List<T> allServers) {
         // other threads might be doing this - in which case, we pass
         if (serverListUpdateInProgress.compareAndSet(false, true)) {
             try {
-                for (T s : ls) {
+                for (T s : allServers) {
                     s.setAlive(true); // set so that clients can start using these
                                       // servers right away instead
                                       // of having to wait out the ping cycle.
                 }
-                setServersList(ls);
+                setServersList(allServers);
                 super.forceQuickPing();
             } finally {
                 serverListUpdateInProgress.set(false);
